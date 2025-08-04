@@ -1,0 +1,302 @@
+<?php
+// User Profile Page for Netflix Clone
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require_once 'db.php'; // Include database connection and helper functions
+requireLogin(); // Redirects to login.php if user is not logged in
+
+$currentUser = getCurrentUser($pdo);
+
+// Handle profile update (basic example)
+$message = '';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['update_profile'])) {
+        $newUsername = sanitizeInput($_POST['username']);
+        $newEmail = sanitizeInput($_POST['email']);
+        // For simplicity, password update is not included here.
+        // Profile image upload would require more complex file handling.
+
+        if (empty($newUsername) || empty($newEmail)) {
+            $error = "Username and Email cannot be empty.";
+        } elseif (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+            $error = "Invalid email format.";
+        } else {
+            try {
+                // Check if username or email already exists for another user
+                $stmt = $pdo->prepare("SELECT id FROM users WHERE (username = ? OR email = ?) AND id != ?");
+                $stmt->execute([$newUsername, $newEmail, $currentUser['id']]);
+                if ($stmt->fetch()) {
+                    $error = "Username or Email already taken by another account.";
+                } else {
+                    $stmt = $pdo->prepare("UPDATE users SET username = ?, email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                    $stmt->execute([$newUsername, $newEmail, $currentUser['id']]);
+                    $message = "Profile updated successfully!";
+                    // Refresh current user data after update
+                    $currentUser = getCurrentUser($pdo);
+                }
+            } catch (PDOException $e) {
+                $error = "Database error: " . $e->getMessage();
+                error_log("Profile update error: " . $e->getMessage());
+            }
+        }
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Netflix Clone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #141414;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .header {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #333;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e50914;
+            text-decoration: none;
+        }
+
+        .profile-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .profile-container h1 {
+            font-size: 2.5rem;
+            color: #e50914;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .profile-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 0.8rem;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #b3b3b3;
+            width: 120px;
+            flex-shrink: 0;
+        }
+
+        .info-value {
+            color: white;
+        }
+
+        .profile-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #e50914;
+            margin: 0 auto 1.5rem;
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #b3b3b3;
+            font-weight: bold;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="email"]:focus {
+            border-color: #e50914;
+            box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.3);
+        }
+
+        .btn {
+            background: #e50914;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s;
+            width: 100%;
+            text-align: center;
+        }
+
+        .btn:hover {
+            background: #f40612;
+        }
+
+        .btn-secondary {
+            background: rgba(109,109,110,0.7);
+            margin-top: 1rem;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(109,109,110,0.4);
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .message.success {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4caf50;
+            color: #4caf50;
+        }
+
+        .message.error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+
+        @media (max-width: 768px) {
+            .profile-container {
+                padding: 1.5rem;
+            }
+            .profile-container h1 {
+                font-size: 2rem;
+            }
+            .info-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .info-label {
+                width: auto;
+                margin-bottom: 0.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <a href="index.php" class="logo">NETFLIX</a>
+        <a href="index.php" class="btn btn-secondary" style="width: auto;">← Back to Home</a>
+    </header>
+
+    <div class="profile-container">
+        <h1>My Profile</h1>
+
+        <?php if ($currentUser): ?>
+            <img src="<?php echo htmlspecialchars($currentUser['profile_image'] ?? '/placeholder.svg?height=100&width=100&text=Avatar'); ?>" alt="Profile Image" class="profile-image">
+
+            <?php if ($message): ?>
+                <div class="message success"><?php echo $message; ?></div>
+            <?php endif; ?>
+            <?php if ($error): ?>
+                <div class="message error"><?php echo $error; ?></div>
+            <?php endif; ?>
+
+            <div class="profile-info">
+                <div class="info-item">
+                    <span class="info-label">Username:</span>
+                    <span class="info-value"><?php echo htmlspecialchars($currentUser['username']); ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value"><?php echo htmlspecialchars($currentUser['email']); ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Subscription:</span>
+                    <span class="info-value"><?php echo htmlspecialchars(ucfirst($currentUser['subscription_type'])); ?></span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Member Since:</span>
+                    <span class="info-value"><?php echo date('F j, Y', strtotime($currentUser['created_at'])); ?></span>
+                </div>
+            </div>
+
+            <h2>Update Profile</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($currentUser['username']); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($currentUser['email']); ?>" required>
+                </div>
+                <button type="submit" name="update_profile" class="btn">Update Profile</button>
+            </form>
+
+        <?php else: ?>
+            <div class="message error">
+                <p>You must be logged in to view your profile.</p>
+                <a href="login.php" class="btn btn-secondary">Go to Login</a>
+            </div>
+        <?php endif; ?>
+    </div>
+</body>
+</html>
