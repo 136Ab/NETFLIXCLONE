@@ -1,0 +1,4 @@
+[01-Aug-2025 13:35:50 UTC] PHP Fatal error:  Uncaught Error: Failed opening required '../db.php' (include_path='.:/usr/local/php82/pear') in /home/customer/www/rsoa17.planetearth.school/public_html/NETFLIXCLONE/watchlist.php:2
+Stack trace:
+#0 {main}
+  thrown in /home/customer/www/rsoa17.planetearth.school/public_html/NETFLIXCLONE/watchlist.php on line 2
